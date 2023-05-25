@@ -178,10 +178,19 @@ fn main() {
                     msg = socket.read_message().expect("Error reading message");
                     let get_transaction_receipt_json: GetTransactionReceiptJson =
                         serde_json::from_str(&msg.clone().to_string()).unwrap();
+
+                    let eth_call_json = serde_json::json!({"jsonrpc":"2.0","method":"eth_call",
+                    "params":[{"to":get_transaction_receipt_json.result.contract_address,"data":"0x70a082310000000000000000000000000000000000000000000000000000000000000001"},"latest"],"id":1});
+                    println!("{}", eth_call_json);
+                    socket
+                        .write_message(Message::Text(eth_call_json.to_string()))
+                        .unwrap();
+                    msg = socket.read_message().expect("Error reading message");
                     println!(
-                        "New Smart Contract Deployment at TX Hash: {} with the contract Address of {}",
-                        transaction.hash,get_transaction_receipt_json.result.contract_address
+                        "New Smart Contract Deployment at TX Hash: {} with the contract Address of {} deployer is {}",
+                        transaction.hash,get_transaction_receipt_json.result.contract_address,get_transaction_receipt_json.result.from
                     );
+                    println!("{}", msg);
                 }
             }
         }
