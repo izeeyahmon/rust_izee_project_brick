@@ -1,8 +1,10 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::i64;
 use std::{thread, time::Duration};
 use tungstenite::{connect, Message};
 use url::Url;
+
 fn main() {
     #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
     struct EthBlockNumberJson {
@@ -13,81 +15,121 @@ fn main() {
 
     #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
-    pub struct GetEthBlockNumberJson {
-        pub jsonrpc: String,
-        pub id: i64,
-        pub result: Result,
+    struct GetEthBlockNumberJson {
+        jsonrpc: String,
+        id: i64,
+        result: Result,
     }
 
     #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
-    pub struct Result {
-        pub base_fee_per_gas: String,
-        pub difficulty: String,
-        pub extra_data: String,
-        pub gas_limit: String,
-        pub gas_used: String,
-        pub hash: String,
-        pub logs_bloom: String,
-        pub miner: String,
-        pub mix_hash: String,
-        pub nonce: String,
-        pub number: String,
-        pub parent_hash: String,
-        pub receipts_root: String,
-        #[serde(rename = "sha3Uncles")]
-        pub sha3uncles: String,
-        pub size: String,
-        pub state_root: String,
-        pub timestamp: String,
-        pub total_difficulty: String,
-        pub transactions: Vec<Transaction>,
-        pub transactions_root: String,
-        pub uncles: Vec<Value>,
-        pub withdrawals: Vec<Withdrawal>,
-        pub withdrawals_root: String,
+    struct GetTransactionReceiptJson {
+        jsonrpc: String,
+        id: i64,
+        result: ReceiptResult,
     }
-
     #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
-    pub struct Transaction {
-        pub block_hash: String,
-        pub block_number: String,
-        pub from: String,
-        pub gas: String,
-        pub gas_price: String,
-        pub max_fee_per_gas: Option<String>,
-        pub max_priority_fee_per_gas: Option<String>,
-        pub hash: String,
-        pub input: String,
-        pub nonce: String,
-        pub to: Option<String>,
-        pub transaction_index: String,
-        pub value: String,
+    struct ReceiptResult {
+        block_hash: String,
+        block_number: String,
+        contract_address: String,
+        cumulative_gas_used: String,
+        effective_gas_price: String,
+        from: String,
+        gas_used: String,
+        logs: Vec<Log>,
+        logs_bloom: String,
+        status: String,
+        to: Value,
+        transaction_hash: String,
+        transaction_index: String,
         #[serde(rename = "type")]
-        pub type_field: String,
+        type_field: String,
+    }
+    #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Log {
+        address: String,
+        topics: Vec<String>,
+        data: String,
+        block_number: String,
+        transaction_hash: String,
+        transaction_index: String,
+        block_hash: String,
+        log_index: String,
+        removed: bool,
+    }
+
+    #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Result {
+        base_fee_per_gas: String,
+        difficulty: String,
+        extra_data: String,
+        gas_limit: String,
+        gas_used: String,
+        hash: String,
+        logs_bloom: String,
+        miner: String,
+        mix_hash: String,
+        nonce: String,
+        number: String,
+        parent_hash: String,
+        receipts_root: String,
+        #[serde(rename = "sha3Uncles")]
+        sha3uncles: String,
+        size: String,
+        state_root: String,
+        timestamp: String,
+        total_difficulty: String,
+        transactions: Vec<Transaction>,
+        transactions_root: String,
+        uncles: Vec<Value>,
+        withdrawals: Vec<Withdrawal>,
+        withdrawals_root: String,
+    }
+
+    #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Transaction {
+        block_hash: String,
+        block_number: String,
+        from: String,
+        gas: String,
+        gas_price: String,
+        max_fee_per_gas: Option<String>,
+        max_priority_fee_per_gas: Option<String>,
+        hash: String,
+        input: String,
+        nonce: String,
+        to: Option<String>,
+        transaction_index: String,
+        value: String,
+        #[serde(rename = "type")]
+        type_field: String,
         #[serde(default)]
-        pub access_list: Vec<AccessList>,
-        pub chain_id: Option<String>,
-        pub v: String,
-        pub r: String,
-        pub s: String,
+        access_list: Vec<AccessList>,
+        chain_id: Option<String>,
+        v: String,
+        r: String,
+        s: String,
     }
 
     #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
-    pub struct AccessList {
-        pub address: String,
-        pub storage_keys: Vec<String>,
+    struct AccessList {
+        address: String,
+        storage_keys: Vec<String>,
     }
 
     #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
-    pub struct Withdrawal {
-        pub index: String,
-        pub validator_index: String,
-        pub address: String,
-        pub amount: String,
+    struct Withdrawal {
+        index: String,
+        validator_index: String,
+        address: String,
+        amount: String,
     }
 
     let (mut socket, response) =
@@ -110,7 +152,14 @@ fn main() {
         if current_block == block_response_json.result {
             thread::sleep(Duration::from_secs(8));
         } else {
-            println!("Received: {}", block_response_json.result);
+            println!(
+                "Block Number: {}",
+                i64::from_str_radix(
+                    block_response_json.result.clone().trim_start_matches("0x"),
+                    16
+                )
+                .unwrap()
+            );
             current_block = block_response_json.result.clone();
             let eth_get_block_number_json = serde_json::json!({"id": 1, "jsonrpc": "2.0", "method": "eth_getBlockByNumber", "params": [&block_response_json.result,true]});
             socket
@@ -127,11 +176,12 @@ fn main() {
                         .write_message(Message::Text(eth_get_transactionreceipt_json.to_string()))
                         .unwrap();
                     msg = socket.read_message().expect("Error reading message");
+                    let get_transaction_receipt_json: GetTransactionReceiptJson =
+                        serde_json::from_str(&msg.clone().to_string()).unwrap();
                     println!(
-                        "New Smart Contract Deployment at TX Hash: {}",
-                        transaction.hash
+                        "New Smart Contract Deployment at TX Hash: {} with the contract Address of {}",
+                        transaction.hash,get_transaction_receipt_json.result.contract_address
                     );
-                    println!("{}", msg);
                 }
             }
         }
