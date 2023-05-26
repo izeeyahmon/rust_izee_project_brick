@@ -6,26 +6,27 @@ use tungstenite::{connect, Message};
 use url::Url;
 
 fn main() {
+    type EthCallBundle = Vec<EthCalls>;
+    #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct EthCalls {
+        pub result: String,
+    }
+
     #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
     struct EthBlockNumberJson {
-        jsonrpc: String,
-        id: u32,
         result: String,
     }
 
     #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     struct GetEthBlockNumberJson {
-        jsonrpc: String,
-        id: i64,
         result: Result,
     }
 
     #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     struct GetTransactionReceiptJson {
-        jsonrpc: String,
-        id: i64,
         result: ReceiptResult,
     }
     #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -71,23 +72,17 @@ fn main() {
         gas_used: String,
         hash: String,
         logs_bloom: String,
-        miner: String,
         mix_hash: String,
         nonce: String,
         number: String,
         parent_hash: String,
         receipts_root: String,
-        #[serde(rename = "sha3Uncles")]
-        sha3uncles: String,
         size: String,
         state_root: String,
         timestamp: String,
         total_difficulty: String,
         transactions: Vec<Transaction>,
         transactions_root: String,
-        uncles: Vec<Value>,
-        withdrawals: Vec<Withdrawal>,
-        withdrawals_root: String,
     }
 
     #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -109,27 +104,7 @@ fn main() {
         #[serde(rename = "type")]
         type_field: String,
         #[serde(default)]
-        access_list: Vec<AccessList>,
         chain_id: Option<String>,
-        v: String,
-        r: String,
-        s: String,
-    }
-
-    #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-    #[serde(rename_all = "camelCase")]
-    struct AccessList {
-        address: String,
-        storage_keys: Vec<String>,
-    }
-
-    #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-    #[serde(rename_all = "camelCase")]
-    struct Withdrawal {
-        index: String,
-        validator_index: String,
-        address: String,
-        amount: String,
     }
 
     let (mut socket, response) =
@@ -179,18 +154,99 @@ fn main() {
                     let get_transaction_receipt_json: GetTransactionReceiptJson =
                         serde_json::from_str(&msg.clone().to_string()).unwrap();
 
-                    let eth_call_json = serde_json::json!({"jsonrpc":"2.0","method":"eth_call",
+                    let eth_call_balance_of = serde_json::json!({"jsonrpc":"2.0","method":"eth_call",
                     "params":[{"to":get_transaction_receipt_json.result.contract_address,"data":"0x70a082310000000000000000000000000000000000000000000000000000000000000001"},"latest"],"id":1});
-                    println!("{}", eth_call_json);
                     socket
-                        .write_message(Message::Text(eth_call_json.to_string()))
+                        .write_message(Message::Text(eth_call_balance_of.to_string()))
                         .unwrap();
                     msg = socket.read_message().expect("Error reading message");
-                    println!(
-                        "New Smart Contract Deployment at TX Hash: {} with the contract Address of {} deployer is {}",
-                        transaction.hash,get_transaction_receipt_json.result.contract_address,get_transaction_receipt_json.result.from
-                    );
+                    //let placeholder = String::from("Placeholder");
                     println!("{}", msg);
+                    if msg.len() == 103 {
+                        let eth_call_tokenuri = serde_json::json!({"jsonrpc":"2.0","method":"eth_call",
+                        "params":[{"to":get_transaction_receipt_json.result.contract_address,"data":"0xc87b56dd0000000000000000000000000000000000000000000000000000000000000001"},"latest"],"id":1});
+                        socket
+                            .write_message(Message::Text(eth_call_tokenuri.to_string()))
+                            .unwrap();
+                        msg = socket.read_message().expect("Error reading message");
+                        println!("{}", msg);
+                        println!("{}", msg.len());
+
+                        let eth_call_batch = serde_json::json!([
+                            {
+                                "method": "eth_getBalance",
+                                "params": [
+                                    get_transaction_receipt_json.result.from,
+                                    "latest"
+                                ],
+                                "id": 3,
+                                "jsonrpc": "2.0"
+                            },
+                            {
+                                "method": "eth_call",
+                                "params": [
+                                    {
+                                        "data": "0x06fdde03",
+                                        "to": get_transaction_receipt_json.result.contract_address
+                                    },
+                                    "latest"
+                                ],
+                                "id": 1,
+                                "jsonrpc": "2.0"
+                            },
+                            {
+                                "method": "eth_call",
+                                "params": [
+                                    {
+                                        "data": "0x18160ddd",
+                                        "to": get_transaction_receipt_json.result.contract_address
+                                    },
+                                    "latest"
+                                ],
+                                "id": 2,
+                                "jsonrpc": "2.0"
+                            }
+                        ]);
+                        socket
+                            .write_message(Message::Text(eth_call_batch.to_string()))
+                            .unwrap();
+                        msg = socket.read_message().expect("Error reading message");
+                        let get_eth_call_json: EthCallBundle =
+                            serde_json::from_str(&msg.clone().to_string()).unwrap();
+                        //dbg!(get_eth_call_json);
+
+                        println!("==========================================================");
+                        println!("New Token Deployed");
+                        println!(
+                            "Token Name : {}",
+                            get_eth_call_json[1].result.clone().trim_start_matches("0x")
+                        );
+                        println!(
+                            "Contract: {}",
+                            get_transaction_receipt_json.result.contract_address
+                        );
+                        println!(
+                            "Supply: {}",
+                            i128::from_str_radix(
+                                get_eth_call_json[2].result.clone().trim_start_matches("0x"),
+                                16
+                            )
+                            .unwrap()
+                        );
+                        println!(
+                            "Owner Address: {}",
+                            get_transaction_receipt_json.result.from
+                        );
+                        println!(
+                            "Owner Balance: {}",
+                            i128::from_str_radix(
+                                get_eth_call_json[0].result.clone().trim_start_matches("0x"),
+                                16
+                            )
+                            .unwrap()
+                        );
+                        println!("==========================================================");
+                    }
                 }
             }
         }
