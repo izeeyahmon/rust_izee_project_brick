@@ -1,6 +1,6 @@
+use hex;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::i64;
 use std::{thread, time::Duration};
 use tungstenite::{connect, Message};
 use url::Url;
@@ -129,7 +129,7 @@ fn main() {
         } else {
             println!(
                 "Block Number: {}",
-                i64::from_str_radix(
+                i128::from_str_radix(
                     block_response_json.result.clone().trim_start_matches("0x"),
                     16
                 )
@@ -211,16 +211,21 @@ fn main() {
                             .write_message(Message::Text(eth_call_batch.to_string()))
                             .unwrap();
                         msg = socket.read_message().expect("Error reading message");
+                        println!("{}", msg);
                         let get_eth_call_json: EthCallBundle =
                             serde_json::from_str(&msg.clone().to_string()).unwrap();
                         //dbg!(get_eth_call_json);
 
                         println!("==========================================================");
                         println!("New Token Deployed");
-                        println!(
-                            "Token Name : {}",
-                            get_eth_call_json[1].result.clone().trim_start_matches("0x")
-                        );
+
+                        let hexstring = hex::decode(
+                            get_eth_call_json[1].result.trim_start_matches("0x").clone(),
+                        )
+                        .unwrap();
+
+                        println!("Token Name : {}", String::from_utf8(hexstring).unwrap());
+
                         println!(
                             "Contract: {}",
                             get_transaction_receipt_json.result.contract_address
@@ -239,11 +244,13 @@ fn main() {
                         );
                         println!(
                             "Owner Balance: {}",
-                            i128::from_str_radix(
+                            (i128::from_str_radix(
                                 get_eth_call_json[0].result.clone().trim_start_matches("0x"),
                                 16
                             )
-                            .unwrap()
+                            .unwrap())
+                                / 10
+                                ^ 18
                         );
                         println!("==========================================================");
                     }
