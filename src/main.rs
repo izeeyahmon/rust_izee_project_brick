@@ -115,7 +115,10 @@ async fn main() {
 
     fn prettify_int(int: i128, decimal: i128) -> String {
         let mut s = String::new();
-        let int_str = (int / 10 ^ decimal).to_string();
+        println!("Decimal is : {}", decimal);
+        let int_div_decimal = int / i128::pow(10, decimal.try_into().unwrap());
+        println!("int_div_decimal is {}", int_div_decimal);
+        let int_str = int_div_decimal.to_string();
         let a = int_str.chars().rev().enumerate();
         for (idx, val) in a {
             if idx != 0 && idx % 3 == 0 {
