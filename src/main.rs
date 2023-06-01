@@ -112,6 +112,20 @@ async fn main() {
     fn ethers_wei(amount: i128) -> String {
         ethers::utils::format_ether(amount).to_string()[0..4].to_string()
     }
+
+    fn prettify_int(int: i128) -> String {
+        let mut s = String::new();
+        let int_str = int.to_string();
+        let a = int_str.chars().rev().enumerate();
+        for (idx, val) in a {
+            if idx != 0 && idx % 3 == 0 {
+                s.insert(0, ',');
+            }
+            s.insert(0, val)
+        }
+        s
+    }
+
     dotenv().ok();
 
     let (mut socket, response) =
@@ -247,7 +261,8 @@ async fn main() {
                                 16,
                             )
                             .unwrap();
-                            println!("Supply: {}", maxsupp);
+                            let maxsupp_prettified = prettify_int(maxsupp);
+                            println!("Supply: {}", maxsupp_prettified);
                             println!(
                                 "Owner Address: {}",
                                 get_transaction_receipt_json.result.from
