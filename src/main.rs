@@ -113,13 +113,13 @@ async fn main() {
         ethers::utils::format_ether(amount).to_string()[0..4].to_string()
     }
 
-    fn prettify_int(int: i128) -> String {
+    fn prettify_int(int: i128, decimal: i128) -> String {
         let mut s = String::new();
-        let int_str = int.to_string();
+        let int_str = (int / 10 ^ decimal).to_string();
         let a = int_str.chars().rev().enumerate();
         for (idx, val) in a {
             if idx != 0 && idx % 3 == 0 {
-                s.insert(0, ',');
+                s.insert(0, ' ');
             }
             s.insert(0, val)
         }
@@ -228,6 +228,18 @@ async fn main() {
                                     ],
                                     "id": 2,
                                     "jsonrpc": "2.0"
+                                },
+                                {
+                                    "method": "eth_call",
+                                    "params": [
+                                        {
+                                            "data": "0x313ce567",
+                                            "to": get_transaction_receipt_json.result.contract_address
+                                        },
+                                        "latest"
+                                    ],
+                                    "id": 4,
+                                    "jsonrpc": "2.0"
                                 }
                             ]);
                             socket
@@ -261,7 +273,12 @@ async fn main() {
                                 16,
                             )
                             .unwrap();
-                            let maxsupp_prettified = prettify_int(maxsupp);
+                            let decimal = i128::from_str_radix(
+                                get_eth_call_json[4].result.clone().trim_start_matches("0x"),
+                                16,
+                            )
+                            .expect("Failed to Extract Decimal");
+                            let maxsupp_prettified = prettify_int(maxsupp, decimal);
                             println!("Supply: {}", maxsupp_prettified);
                             println!(
                                 "Owner Address: {}",
@@ -289,7 +306,7 @@ async fn main() {
                                         },
                                         {
                                             "name" : "Max Supply",
-                                            "value" : maxsupp.to_string(),
+                                            "value" : maxsupp_prettified,
                                         },
                                         {
                                             "name" : "Owner Address",
