@@ -274,7 +274,7 @@ async fn main() {
                             )
                             .unwrap();
                             let decimal = i128::from_str_radix(
-                                get_eth_call_json[4].result.clone().trim_start_matches("0x"),
+                                get_eth_call_json[3].result.clone().trim_start_matches("0x"),
                                 16,
                             )
                             .expect("Failed to Extract Decimal");
