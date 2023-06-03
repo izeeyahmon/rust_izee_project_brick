@@ -1,135 +1,47 @@
 use dotenv::dotenv;
+use ethers::prelude::*;
+use ethers::providers::{Provider, Ws};
+use ethers::types::U64;
 use hex;
-use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::json;
 use std::{thread, time::Duration};
 use tokio;
 use tungstenite::{connect, Message};
 use url::Url;
+
+mod library;
+use crate::library::types::*;
+
+fn ethers_wei(amount: i128) -> String {
+    ethers::utils::format_ether(amount).to_string()[0..4].to_string()
+}
+
+fn prettify_int(int: i128, decimal: i128) -> String {
+    let mut s = String::new();
+    println!("Decimal is : {}", decimal);
+    let int_div_decimal = int / i128::pow(10, decimal.try_into().unwrap());
+    println!("int_div_decimal is {}", int_div_decimal);
+    let int_str = int_div_decimal.to_string();
+    let a = int_str.chars().rev().enumerate();
+    for (idx, val) in a {
+        if idx != 0 && idx % 3 == 0 {
+            s.insert(0, ' ');
+        }
+        s.insert(0, val)
+    }
+    s
+}
+
 #[tokio::main]
 async fn main() {
-    type EthCallBundle = Vec<EthCalls>;
-    #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-    #[serde(rename_all = "camelCase")]
-    pub struct EthCalls {
-        pub result: String,
-    }
-
-    #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-    struct EthBlockNumberJson {
-        result: String,
-    }
-
-    #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-    #[serde(rename_all = "camelCase")]
-    struct GetEthBlockNumberJson {
-        result: Result,
-    }
-
-    #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-    #[serde(rename_all = "camelCase")]
-    struct GetTransactionReceiptJson {
-        result: ReceiptResult,
-    }
-    #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-    #[serde(rename_all = "camelCase")]
-    struct ReceiptResult {
-        block_hash: String,
-        block_number: String,
-        contract_address: String,
-        cumulative_gas_used: String,
-        effective_gas_price: String,
-        from: String,
-        gas_used: String,
-        logs: Vec<Log>,
-        logs_bloom: String,
-        status: String,
-        to: Value,
-        transaction_hash: String,
-        transaction_index: String,
-        #[serde(rename = "type")]
-        type_field: String,
-    }
-    #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-    #[serde(rename_all = "camelCase")]
-    struct Log {
-        address: String,
-        topics: Vec<String>,
-        data: String,
-        block_number: String,
-        transaction_hash: String,
-        transaction_index: String,
-        block_hash: String,
-        log_index: String,
-        removed: bool,
-    }
-
-    #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-    #[serde(rename_all = "camelCase")]
-    struct Result {
-        base_fee_per_gas: String,
-        difficulty: String,
-        extra_data: String,
-        gas_limit: String,
-        gas_used: String,
-        hash: String,
-        logs_bloom: String,
-        mix_hash: String,
-        nonce: String,
-        number: String,
-        parent_hash: String,
-        receipts_root: String,
-        size: String,
-        state_root: String,
-        timestamp: String,
-        total_difficulty: String,
-        transactions: Vec<Transaction>,
-        transactions_root: String,
-    }
-
-    #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-    #[serde(rename_all = "camelCase")]
-    struct Transaction {
-        block_hash: String,
-        block_number: String,
-        from: String,
-        gas: String,
-        gas_price: String,
-        max_fee_per_gas: Option<String>,
-        max_priority_fee_per_gas: Option<String>,
-        hash: String,
-        input: String,
-        nonce: String,
-        to: Option<String>,
-        transaction_index: String,
-        value: String,
-        #[serde(rename = "type")]
-        type_field: String,
-        #[serde(default)]
-        chain_id: Option<String>,
-    }
-
-    fn ethers_wei(amount: i128) -> String {
-        ethers::utils::format_ether(amount).to_string()[0..4].to_string()
-    }
-
-    fn prettify_int(int: i128, decimal: i128) -> String {
-        let mut s = String::new();
-        println!("Decimal is : {}", decimal);
-        let int_div_decimal = int / i128::pow(10, decimal.try_into().unwrap());
-        println!("int_div_decimal is {}", int_div_decimal);
-        let int_str = int_div_decimal.to_string();
-        let a = int_str.chars().rev().enumerate();
-        for (idx, val) in a {
-            if idx != 0 && idx % 3 == 0 {
-                s.insert(0, ' ');
-            }
-            s.insert(0, val)
-        }
-        s
-    }
-
     dotenv().ok();
+    let rpc_url = std::env::var("RPC_URL").expect("We need a WS to start");
+    let provider = Provider::<Ws>::connect(&rpc_url)
+        .await
+        .expect("Error Connecting to WS");
+
+    let block_number: U64 = provider.get_block_number().await.unwrap();
+    println!("{:?}", block_number);
 
     let (mut socket, response) =
         connect(Url::parse("ws://10.234.32.252:8546").unwrap()).expect("Can't connect");
@@ -323,13 +235,13 @@ async fn main() {
 
                                 }]
                             }).to_string();
-                            let response = client
-                                .post(&webhook)
-                                .header("Content-type", "application/json")
-                                .body(json.to_owned())
-                                .send()
-                                .await;
-                            println!("{:?}", response.expect("Cannot be"));
+                            // let response = client
+                            //     .post(&webhook)
+                            //     .header("Content-type", "application/json")
+                            //     .body(json.to_owned())
+                            //     .send()
+                            //     .await;
+                            // println!("{:?}", response.expect("Cannot be"));
                             println!("==========================================================");
                         }
                     }
