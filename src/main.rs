@@ -6,8 +6,6 @@ use serde_json::json;
 use std::sync::Arc;
 use std::{thread, time::Duration};
 use tokio;
-//use tungstenite::{connect, Message};
-//use url::Url;
 
 
 fn ethers_wei(amount: U256) -> String {
@@ -40,6 +38,7 @@ abigen!(
 
 #[tokio::main]
 async fn main() {
+
     dotenv().ok();
     let rpc_url = std::env::var("RPC_URL").expect("We need a WS to start");
     let provider = Provider::<Ws>::connect(&rpc_url)
@@ -115,6 +114,7 @@ async fn main() {
                                                                             "value" : format!("{}ETH",ethers_wei(eth_balance))
                                                                         }
                                                                     ]
+                                                            
                                 
                                                                 }]
                                                             }).to_string();
