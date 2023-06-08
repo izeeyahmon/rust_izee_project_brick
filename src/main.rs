@@ -1,13 +1,12 @@
 use dotenv::dotenv;
 use ethers::prelude::*;
 use ethers::providers::{Provider, Ws};
-use ethers::types::{U64,H160};
-use serde_json::json;
+use ethers::types::{H160, U64};
 use std::sync::Arc;
 use std::{thread, time::Duration};
 mod library;
 use library::helper::*;
-
+use library::sendwebhook::*;
 
 abigen!(
     ERC20,
@@ -22,7 +21,6 @@ abigen!(
 
 #[tokio::main]
 async fn main() {
-
     dotenv().ok();
     let rpc_url = std::env::var("RPC_URL").expect("We need a WS to start");
     let provider = Provider::<Ws>::connect(&rpc_url)
@@ -30,7 +28,6 @@ async fn main() {
         .expect("Error Connecting to WS");
     let provider = Arc::new(provider);
     let mut current_block: String = String::from("");
-    let webhook = std::env::var("DISCORD_WEBHOOK").expect("We need a webhook to start");
     let client = reqwest::Client::new();
     loop {
         let block_number: U64 = provider.get_block_number().await.unwrap();
@@ -67,50 +64,42 @@ async fn main() {
                                 let decimals = con_instance.decimals().await;
                                 match decimals {
                                     Ok(decimals) => {
-                                        let token_name = con_instance.name().await;
-                                        let total_supply = con_instance.total_supply().await;
-                                        let token_symbol = con_instance.symbol().await;
-                                        let eth_balance = provider.get_balance(transaction.from, None).await.unwrap();
-                                        let  eth_address = format!("http://etherscan.io/token/{:?}",address);
-                                        let  eth_owner = format!("http://etherscan.io/address/{:?}",transaction.from);
-                                        let json = json!({
-                                                                "embeds":[{
-                                                                    "title":"New Token Deployment",
-                                                                    "fields": [
-                                                                        {
-                                                                            "name": "Name",
-                                                                            "value" : format!("{}({})",token_name.unwrap(),token_symbol.unwrap()),
-                                                                        },
-                                                                        {
-                                                                            "name" : "Address",
-                                                                            "value" : eth_address,
-                                                                        },
-                                                                        {
-                                                                            "name" : "Max Supply",
-                                                                            "value" : prettify_int(total_supply.unwrap(), decimals.try_into().unwrap()),
-                                                                        },
-                                                                        {
-                                                                            "name" : "Owner Address",
-                                                                            "value" : eth_owner,
-                                                                        },
-                                                                        {
-                                                                            "name" : "Eth Balance",
-                                                                            "value" : format!("{}ETH",ethers_wei(eth_balance))
-                                                                        }
-                                                                    ]
-                                                            
-                                
-                                                                }]
-                                                            }).to_string();
-                                        println!("{:?}",json);
-                                        let response = client
-                                        .post(&webhook)
-                                        .header("Content-type", "application/json")
-                                        .body(json.to_owned())
-                                        .send()
+                                        let token_name = con_instance.name().await.unwrap();
+                                        let max_supply = prettify_int(
+                                            con_instance.total_supply().await.unwrap(),
+                                            decimals.try_into().unwrap(),
+                                        );
+                                        let token_symbol = con_instance.symbol().await.unwrap();
+                                        let eth_balance = ethers_wei(
+                                            provider
+                                                .get_balance(transaction.from, None)
+                                                .await
+                                                .unwrap(),
+                                        );
+                                        let eth_address =
+                                            format!("http://etherscan.io/token/{:?}", address);
+                                        let eth_owner = format!(
+                                            "http://etherscan.io/address/{:?}",
+                                            transaction.from
+                                        );
+                                        let send_hook = send_webhook(
+                                            &client,
+                                            token_name,
+                                            max_supply,
+                                            token_symbol,
+                                            eth_address,
+                                            eth_owner,
+                                            eth_balance,
+                                        )
                                         .await;
-                                        println!("{:?}", response.expect("Cannot be"));
-                                        println!("==========================================================");
+                                        match send_hook {
+                                            Ok(_) => {
+                                                println!("Sent webhook");
+                                            }
+                                            Err(e) => {
+                                                println!("Error sending hook {}", e);
+                                            }
+                                        }
                                     }
                                     Err(_) => {
                                         println!("Not an ERC20")
@@ -124,7 +113,6 @@ async fn main() {
                     }
                 }
             }
-
         }
     }
 }
