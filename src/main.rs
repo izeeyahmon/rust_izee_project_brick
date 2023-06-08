@@ -1,30 +1,14 @@
 use dotenv::dotenv;
 use ethers::prelude::*;
 use ethers::providers::{Provider, Ws};
-use ethers::types::{U256,U64,H160};
+use ethers::types::{U64,H160};
 use serde_json::json;
 use std::sync::Arc;
 use std::{thread, time::Duration};
-use tokio;
+mod library;
+use library::helper::*;
 
 
-fn ethers_wei(amount: U256) -> String {
-    ethers::utils::format_ether(amount).to_string()[0..4].to_string()
-}
-
-fn prettify_int(int: U256, decimal: i128) -> String {
-    let mut s = String::new();
-    let int_div_decimal = int / i128::pow(10, decimal.try_into().unwrap());
-    let int_str = int_div_decimal.to_string();
-    let a = int_str.chars().rev().enumerate();
-    for (idx, val) in a {
-        if idx != 0 && idx % 3 == 0 {
-            s.insert(0, ' ');
-        }
-        s.insert(0, val)
-    }
-    s
-}
 abigen!(
     ERC20,
     r#"[
@@ -69,11 +53,11 @@ async fn main() {
                     None => {
                         println!("Contract creation at TX {:?}", transaction.hash);
                         let x = provider
-                            .get_transaction_receipt(transaction.hash.clone())
+                            .get_transaction_receipt(transaction.hash)
                             .await
                             .unwrap();
                         let address: H160 = x.unwrap().contract_address.unwrap();
-                        let con_instance = ERC20::new(address.clone(), provider.clone());
+                        let con_instance = ERC20::new(address, provider.clone());
                         let dummy_addy: H160 = "0x0000000000000000000000000000000000000001"
                             .parse::<Address>()
                             .unwrap();
