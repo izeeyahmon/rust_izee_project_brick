@@ -84,7 +84,7 @@ pub struct EthResult {
 pub struct Transaction {
     block_hash: String,
     block_number: String,
-    from: String,
+    pub from: String,
     gas: String,
     gas_price: String,
     max_fee_per_gas: Option<String>,
