@@ -1,0 +1,2 @@
+DISCORD_WEBHOOK = Webhook_here
+RPC_URL = ws://*.*.*.*
