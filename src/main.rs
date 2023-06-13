@@ -22,9 +22,7 @@ abigen!(
 async fn main() {
     dotenv().ok();
     let rpc_url = std::env::var("RPC_URL").expect("We need a WS to start");
-    let provider = Provider::<Ws>::connect(&rpc_url)
-        .await
-        .expect("Error Connecting to WS");
+    let provider = Provider::<Ws>::connect(&rpc_url).await.expect("Error Connecting to WS");
     let provider = Arc::new(provider);
     let mut current_block: String = String::from("");
     let client = reqwest::Client::new();
@@ -39,15 +37,11 @@ async fn main() {
             for transaction in eth_get_block_number.unwrap().transactions.iter() {
                 if transaction.to.is_none() {
                     println!("Contract creation at TX {:?}", transaction.hash);
-                    let x = provider
-                        .get_transaction_receipt(transaction.hash)
-                        .await
-                        .unwrap();
+                    let x = provider.get_transaction_receipt(transaction.hash).await.unwrap();
                     let address: H160 = x.unwrap().contract_address.unwrap();
                     let con_instance = ERC20::new(address, provider.clone());
-                    let dummy_addy: H160 = "0x0000000000000000000000000000000000000001"
-                        .parse::<Address>()
-                        .unwrap();
+                    let dummy_addy: H160 =
+                        "0x0000000000000000000000000000000000000001".parse::<Address>().unwrap();
                     let bal = con_instance.balance_of(dummy_addy).await;
                     match bal {
                         Ok(_) => {
